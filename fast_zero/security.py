@@ -13,21 +13,11 @@ from zoneinfo import ZoneInfo
 
 from fast_zero.database import get_session
 from fast_zero.models import User
+from fast_zero.settings import Settings
 
 pwd_context = PasswordHash.recommended()
-
-SECRET_KEY = (
-    'asXLpac4-w-xcfue2CiWAv0VodG5z0Olryf8uRWFoHfu3dSG7qDJ2xJWxPoJvx'
-    '-wNcwwWn2ds_AUy1qttVqx6vG0xSoMaIG5tnGYfeSLFUGg55eOLTrcOzXpmCLO'
-    'iqG8WxrUprcEAyZxesnyydFhsm1nm5-bP9AadCJ0cdpmHdUefh7zocCupE2Haw'
-    'z7IzRC_njsqs6GnNAHkL1ZeaDA5G4TvyoBYF7Klv-Uf1GyEY4IdxmP028fG_6h'
-    '_WiIDWKZYv7o-zTA2ikIhu2LCdEgXlOQV6CRn4El4dPSqKY2mgjEFyVyA8O6Zg'
-    'uRAOdz9zz0nVW8l5YZePBunG4tZNe0zA'
-)
-ALGORITHM = 'HS256'
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl='token')
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl='auth/token')
+settings = Settings()
 
 
 def get_password_hash(password: str) -> str:
@@ -42,17 +32,17 @@ def create_access_token(data: dict) -> str:
     to_encode = data.copy()
 
     to_encode['exp'] = datetime.now(tz=ZoneInfo('UTC')) + timedelta(
-        minutes=ACCESS_TOKEN_EXPIRE_MINUTES
+        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
     )
 
-    encoded_jwt = encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = encode(to_encode,
+                         settings.SECRET_KEY,
+                         algorithm=settings.ALGORITHM)
     return encoded_jwt
 
 
-def get_current_user(
-    session: Session = Depends(get_session),
-    token: str = Depends(oauth2_scheme),
-) -> User | NoReturn:
+def get_current_user(session: Session = Depends(get_session),
+                     token: str = Depends(oauth2_scheme)) -> User | NoReturn:
     credentials_exception = HTTPException(
         status_code=HTTPStatus.UNAUTHORIZED,
         detail='Could not validate credentials',
@@ -60,7 +50,9 @@ def get_current_user(
     )
 
     try:
-        payload = decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = decode(token,
+                         settings.SECRET_KEY,
+                         algorithms=[settings.ALGORITHM])
         username: str = payload.get('sub')
         if not username:
             raise credentials_exception
