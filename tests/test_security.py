@@ -1,19 +1,20 @@
 from http import HTTPStatus
 
+import pytest
 from fastapi.exceptions import HTTPException
 from fastapi.testclient import TestClient
 from jwt import decode
-from pytest import raises
 
-from fast_zero.security import create_access_token, settings, get_current_user
+from fast_zero.security import create_access_token, get_current_user, settings
 
 
 def test_jwt():
     data = {'sub': 'test@test.com'}
     token = create_access_token(data)
 
-    result = decode(token, settings.SECRET_KEY,
-                    algorithms=[settings.ALGORITHM])
+    result = decode(
+        token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+    )
 
     assert result['sub'] == data['sub']
     assert result['exp']
@@ -29,5 +30,5 @@ def test_jwt_invalid_token(client: TestClient):
 
 
 def test_get_current_user_deve_dar_erro_de_jwt():
-    with raises(HTTPException):
+    with pytest.raises(HTTPException):
         get_current_user()

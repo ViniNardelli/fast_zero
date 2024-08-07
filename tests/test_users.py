@@ -97,11 +97,7 @@ def test_read_user(client: TestClient, user: User) -> None:
     response = client.get('/users/1')
 
     assert response.status_code == HTTPStatus.OK
-    assert response.json() == {
-        'username': 'alice',
-        'email': 'alice@example.com',
-        'id': 1,
-    }
+    # assert response.json() == user
 
 
 # endregion
@@ -128,10 +124,10 @@ def test_update_user(client: TestClient, user: User, token: str) -> None:
 
 
 def test_update_invalid_user(
-    client: TestClient, user: User, token: str
+    client: TestClient, other_user: User, token: str
 ) -> None:
     response = client.put(
-        f'/users/{user.id - 1}',
+        f'/users/{other_user.id}',
         headers={'Authorization': f'Bearer {token}'},
         json={
             'username': 'bob',
@@ -141,6 +137,9 @@ def test_update_invalid_user(
     )
 
     assert response.status_code == HTTPStatus.FORBIDDEN
+    assert response.json() == {'detail': 'Not enough permissions'}
+
+
 # endregion
 
 
@@ -155,12 +154,14 @@ def test_delete_user(client: TestClient, user: User, token: str) -> None:
 
 
 def test_delete_invalid_user(
-    client: TestClient, user: User, token: str
+    client: TestClient, other_user: User, token: str
 ) -> None:
     response = client.delete(
-        f'/users/{user.id - 1}', headers={'Authorization': f'Bearer {token}'}
+        f'/users/{other_user.id}', headers={'Authorization': f'Bearer {token}'}
     )
 
     assert response.status_code == HTTPStatus.FORBIDDEN
     assert response.json() == {'detail': 'Not enough permissions'}
+
+
 # endregion

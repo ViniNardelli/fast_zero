@@ -17,9 +17,9 @@ T_CurrentUSer = Annotated[User, Depends(get_current_user)]
 
 
 @router.get('/', response_model=UserList)
-def read_users(session: T_Session,
-               limit: int = 10,
-               offset: int = 0) -> dict[str, ScalarResult[User]]:
+def read_users(
+    session: T_Session, limit: int = 10, offset: int = 0
+) -> dict[str, ScalarResult[User]]:
     user = session.scalars(select(User).limit(limit).offset(offset))
     return {'users': user}
 
