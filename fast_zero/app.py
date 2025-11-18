@@ -15,9 +15,7 @@ def read_root() -> dict[str, str]:
     return {'message': 'Hello World!'}
 
 
-@app.post('/users/',
-          status_code=HTTPStatus.CREATED,
-          response_model=UserPublic)
+@app.post('/users/', status_code=HTTPStatus.CREATED, response_model=UserPublic)
 def create_user(user: UserSchema) -> UserDB:
     user_with_id = UserDB(id=len(database) + 1, **user.model_dump())
     database.append(user_with_id)
@@ -29,37 +27,41 @@ def read_users() -> dict[str, list[UserDB]]:
     return {'users': database}
 
 
-@app.get('/users/{user_id}',
-         status_code=HTTPStatus.OK,
-         response_model=UserPublic)
+@app.get(
+    '/users/{user_id}', status_code=HTTPStatus.OK, response_model=UserPublic
+)
 def read_user(user_id: int) -> UserPublic | NoReturn:
     if not (0 < user_id <= len(database)):
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND,
-                            detail='User not found')
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail='User not found'
+        )
 
     return database[user_id - 1]
 
 
-@app.put('/users/{user_id}',
-         status_code=HTTPStatus.OK,
-         response_model=UserPublic)
+@app.put(
+    '/users/{user_id}', status_code=HTTPStatus.OK, response_model=UserPublic
+)
 def update_user(user_id: int, user: UserSchema) -> UserDB | NoReturn:
     if not (0 < user_id <= len(database)):
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND,
-                            detail='User not found')
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail='User not found'
+        )
 
-    database[user_id - 1] = (user_with_id := UserDB(id=user_id,
-                                                    **user.model_dump()))
+    database[user_id - 1] = (
+        user_with_id := UserDB(id=user_id, **user.model_dump())
+    )
     return user_with_id
 
 
-@app.delete('/users/{user_id}',
-            status_code=HTTPStatus.OK,
-            response_model=UserPublic)
+@app.delete(
+    '/users/{user_id}', status_code=HTTPStatus.OK, response_model=UserPublic
+)
 def delete_user(user_id: int) -> UserPublic | NoReturn:
     if not (0 < user_id <= len(database)):
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND,
-                            detail='User not found')
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail='User not found'
+        )
 
     return database.pop(user_id - 1)
 
