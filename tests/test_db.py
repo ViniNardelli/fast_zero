@@ -12,9 +12,9 @@ def test_create_user(session, mock_db_time):
         session.add(new_user)
         session.commit()
 
-        user = session.scalar(select(User).where(User.username == 'test'))
+        user_saved = session.scalar(select(User).where(User.username == 'test'))
 
-    assert asdict(user) == {
+    assert asdict(user_saved) == {
         'id': 1,
         'username': 'test',
         'email': 'test@test.com',
