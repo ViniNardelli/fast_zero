@@ -2,14 +2,15 @@ from http import HTTPStatus
 from typing import Sequence
 
 from fastapi import Depends, FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from fast_zero.database import get_session
 from fast_zero.models import User
-from fast_zero.schemas import Message, UserList, UserPublic, UserSchema
+from fast_zero.schemas import Message, Token, UserList, UserPublic, UserSchema
+from fast_zero.security import create_access_token, get_current_user, get_password_hash, verify_password
 
 app = FastAPI()
 
@@ -28,6 +29,7 @@ def create_user(user: UserSchema, session: Session = Depends(get_session)) -> Us
             raise HTTPException(status_code=HTTPStatus.CONFLICT, detail='Username or email already exists')
 
     db_user = User(**user.model_dump())
+    db_user.password = get_password_hash(user.password)
 
     session.add(db_user)
     session.commit()
@@ -37,13 +39,16 @@ def create_user(user: UserSchema, session: Session = Depends(get_session)) -> Us
 
 
 @app.get('/users/', status_code=HTTPStatus.OK, response_model=UserList)
-def read_users(skip: int = 0, limit: int = 100, session: Session = Depends(get_session)) -> dict[str, Sequence[User]]:
+def read_users(skip: int = 0,
+               limit: int = 100,
+               session: Session = Depends(get_session),
+               current_user=Depends(get_current_user)) -> dict[str, Sequence[User]]:
     users = session.scalars(select(User).offset(skip).limit(limit)).all()
     return {'users': users}
 
 
 @app.get('/users/{user_id}', status_code=HTTPStatus.OK, response_model=UserPublic)
-def read_user(user_id: int, session: Session = Depends(get_session)):
+def read_user(user_id: int, session: Session = Depends(get_session)) -> User:
     user_db = session.scalar(select(User).where(User.id == user_id))
 
     if not user_db:
@@ -53,47 +58,51 @@ def read_user(user_id: int, session: Session = Depends(get_session)):
 
 
 @app.put('/users/{user_id}', status_code=HTTPStatus.OK, response_model=UserPublic)
-def update_user(user_id: int, user: UserSchema, session: Session = Depends(get_session)):
-    user_db = session.scalar(select(User).where(User.id == user_id))
+def update_user(user_id: int,
+                user: UserSchema,
+                session: Session = Depends(get_session),
+                current_user: User = Depends(get_current_user)) -> User:
+    if current_user.id != user_id:
+        raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail='Not enough permissions')
 
-    if user_db:
-        user_db.email = str(user.email)
-        user_db.username = user.username
-        user_db.password = user.password
+    try:
+        current_user.email = str(user.email)
+        current_user.username = user.username
+        current_user.password = get_password_hash(user.password)
 
-        try:
-            session.add(user_db)
-            session.commit()
-            session.refresh(user_db)
-        except IntegrityError:
-            raise HTTPException(status_code=HTTPStatus.CONFLICT, detail='Username or email already exists')
+        session.add(current_user)
+        session.commit()
+        session.refresh(current_user)
 
-        return user_db
-    else:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='User not found')
+        return current_user
+    except IntegrityError:
+        raise HTTPException(status_code=HTTPStatus.CONFLICT, detail='Username or email already exists')
 
 
 @app.delete('/users/{user_id}', status_code=HTTPStatus.OK, response_model=Message)
-def delete_user(user_id: int, session: Session = Depends(get_session)):
-    user_db = session.scalar(select(User).where(User.id == user_id))
+def delete_user(user_id: int,
+                session: Session = Depends(get_session),
+                current_user: User = Depends(get_current_user)) -> dict[str, str]:
+    if current_user.id != user_id:
+        raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail='Not enough permissions')
 
-    if user_db:
-        session.delete(user_db)
-        session.commit()
+    session.delete(current_user)
+    session.commit()
 
-        return {'message': 'User deleted successfully'}
-    else:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='User not found')
+    return {'message': 'User deleted successfully'}
 
 
-@app.get('/oi', status_code=HTTPStatus.OK, response_class=HTMLResponse)
-def ola_mundo():
-    return """
-    <!doctype html>
-        <head>
-            <title>Saudações</title>
-        </head>
-        <body>
-            <h1>OLÁ MUNDO!!!</h1>
-        </body>
-    </html>"""
+@app.post('/token', response_model=Token)
+def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(),
+                           session: Session = Depends(get_session)) -> dict[str, str]:
+    user = session.scalar(select(User).where(User.email == form_data.username))
+
+    if not user:
+        raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED, detail='Incorrect email or password')
+
+    if not verify_password(form_data.password, user.password):
+        raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED, detail='Incorrect email or password')
+
+    access_token = create_access_token(data={'sub': user.email})
+
+    return {'access_token': access_token, 'token_type': 'Bearer'}
