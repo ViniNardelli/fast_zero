@@ -7,7 +7,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jwt import DecodeError, decode, encode
 from pwdlib import PasswordHash
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from fast_zero.database import get_session
 from fast_zero.models import User
@@ -36,7 +36,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def get_current_user(session: Session = Depends(get_session), token: str = Depends(oauth2_scheme)):
+async def get_current_user(session: AsyncSession = Depends(get_session), token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(status_code=HTTPStatus.UNAUTHORIZED,
                                           detail='Could not validate credentials',
                                           headers={'WWW-Authenticate': 'Bearer'})
@@ -51,7 +51,7 @@ def get_current_user(session: Session = Depends(get_session), token: str = Depen
     except DecodeError:
         raise credentials_exception
 
-    if not (user := session.scalar(select(User).where(User.email == subject_email))):
+    if not (user := await session.scalar(select(User).where(User.email == subject_email))):
         raise credentials_exception
 
     return user
