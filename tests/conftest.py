@@ -2,6 +2,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import Generator
 
+import factory
 import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
@@ -14,6 +15,15 @@ from fast_zero.database import get_session
 from fast_zero.models import User, table_registry
 from fast_zero.security import get_password_hash
 from fast_zero.settings import Settings
+
+
+class UserFactory(factory.Factory):
+    class Meta:
+        model = User
+
+    username = factory.Sequence(lambda n: f'test{n}')
+    email = factory.LazyAttribute(lambda obj: f'{obj.username}@test.com')
+    password = factory.LazyAttribute(lambda obj: f'{obj.username}@example.com')
 
 
 @pytest.fixture
@@ -63,9 +73,9 @@ def mock_db_time():
 
 
 @pytest_asyncio.fixture
-async def user(session: AsyncSession) -> User:
+async def user(session: AsyncSession) -> UserFactory:
     password = 'testAlice'
-    user = User(username='Alice', email='alice@example.com', password=get_password_hash(password))
+    user = UserFactory(password=get_password_hash(password))
 
     session.add(user)
     await session.commit()
@@ -77,9 +87,9 @@ async def user(session: AsyncSession) -> User:
 
 
 @pytest_asyncio.fixture
-async def another_user(session: AsyncSession) -> User:
+async def other_user(session: AsyncSession) -> UserFactory:
     password = 'testBob'
-    user = User(username='Bob', email='bob@example.com', password=get_password_hash(password))
+    user = UserFactory(password=get_password_hash(password))
 
     session.add(user)
     await session.commit()

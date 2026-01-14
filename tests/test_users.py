@@ -73,30 +73,30 @@ def test_update_user(client, user, token) -> None:
     assert response.json() == {'id': user.id, 'username': 'bob', 'email': 'bob@example.com'}
 
 
-def test_update_user_duplicated_name(client, user, another_user, token) -> None:
+def test_update_user_duplicated_name(client, user, other_user, token) -> None:
     response = client.put(f'/users/{user.id}',
-                          json={'username': 'Bob',
-                                'email': 'alice@example.com',
-                                'password': 'secrets'},
+                          json={'username': other_user.username,
+                                'email': user.email,
+                                'password': user.password},
                           headers={'Authorization': f'Bearer {token}'})
 
     assert response.status_code == HTTPStatus.CONFLICT
     assert response.json() == {'detail': 'Username or email already exists'}
 
 
-def test_update_user_duplicated_email(client, user, another_user, token) -> None:
+def test_update_user_duplicated_email(client, user, other_user, token) -> None:
     response = client.put(f'/users/{user.id}',
-                          json={'username': 'Alice',
-                                'email': 'bob@example.com',
-                                'password': 'secrets'},
+                          json={'username': user.username,
+                                'email': other_user.email,
+                                'password': user.password},
                           headers={'Authorization': f'Bearer {token}'})
 
     assert response.status_code == HTTPStatus.CONFLICT
     assert response.json() == {'detail': 'Username or email already exists'}
 
 
-def test_update_another_user(client, user, another_user, token) -> None:
-    response = client.put(f'/users/{another_user.id}',
+def test_update_user_with_wrong_user(client, other_user, token) -> None:
+    response = client.put(f'/users/{other_user.id}',
                           json={'username': 'Alice',
                                 'email': 'alice@example.com',
                                 'password': 'secrets'},
@@ -114,8 +114,8 @@ def test_delete_user(client, user, token) -> None:
     assert responde.json() == {'message': 'User deleted successfully'}
 
 
-def test_fail_delete_other_user(client, user, another_user, token) -> None:
-    response = client.delete(f'/users/{another_user.id}',
+def test_fail_delete_user_wrong_user(client, other_user, token) -> None:
+    response = client.delete(f'/users/{other_user.id}',
                              headers={'Authorization': f'Bearer {token}'})
 
     assert response.status_code == HTTPStatus.FORBIDDEN
